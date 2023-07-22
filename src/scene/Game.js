@@ -1,5 +1,9 @@
 import Phaser from "phaser";
 import Dino from "../game-object/Dino";
+import Obstacle from "../game-object/Obstacle";
+import config from "../config";
+
+const { width, height, fontFamily } = config;
 
 export default class Game extends Phaser.Scene {
   constructor() {
@@ -7,12 +11,15 @@ export default class Game extends Phaser.Scene {
   }
 
   create() {
-    this.dino = new Dino(this, 50, 50);
-    this.isGameOver = false;
+    this.obstacleKeys = ["obstacle-small"];
+    this.dino = new Dino(this, 100, 50);
+    this.isGameOver = true;
+
+    this.speed = this.targetSpeed = 4;
 
     this.obstacleGroup = this.physics.add.group();
 
-    this.street = this.add.tileSprite(300, 200, 600, 150, "street");
+    this.street = this.add.tileSprite(0, 120, 1200, 12, "street");
 
     this.physics.add.existing(this.street);
 
@@ -21,78 +28,81 @@ export default class Game extends Phaser.Scene {
 
     this.physics.add.collider(this.street, this.dino);
 
+    this.scene.launch("bootstrap");
+
     this.cursor = this.input.keyboard.createCursorKeys();
 
-    this.anims.create({
-      key: "dino_move",
-      frames: this.anims.generateFrameNumbers("dino", { start: 1, end: 4 }),
-      frameRate: 20,
-      repeat: -1,
+    this.input.on("pointerdown", () => {
+      if (this.dino.body.touching.down) {
+        this.dino.setVelocityY(-380);
+      }
     });
-
-    this.dino.play("dino_move");
 
     setInterval(() => {
       if (!this.isGameOver) {
         this.score++;
         this.scoreLabel.setText(this.score);
+
+        //Tăng độ khó cho game
+        if (this.score % 200 === 0) {
+          this.targetSpeed++;
+          this.obstacleKeys.push("obstacle-large");
+        }
+
+        if (this.score % 300 == 0) {
+          this.createObstacle();
+        }
       }
     }, 100);
 
     this.createObstacle();
 
-    this.physics.add.collider(this.dino, this.obstacleGroup, () => {
+    this.physics.add.collider(this.obstacleGroup, this.dino, () => {
+      console.log("collider");
       this.scene.pause();
       this.isGameOver = true;
+      this.scene.launch("game-over");
     });
 
     this.score = 0;
     this.scoreLabel = this.add.text(20, 0, this.score, {
-      fontFamily: 'Georgia, "Goudy Bookletter 1911", Times, serif',
+      fontFamily: fontFamily,
       color: "#0000000",
     });
   }
 
-  createObstacle() {
-    let x = 700;
-    for (let i = 0; i < 3; i++) {
-      const obstacle = this.physics.add.sprite(
-        x,
-        120,
-        "obstacle-large",
-        Phaser.Math.Between(0, 5)
-      );
-      x -= Phaser.Math.Between(300, 400);
-      this.obstacleGroup.add(obstacle);
-      obstacle.body.allowGravity = false;
-      obstacle.body.immovable = true;
-    }
+  createObstacle(type = "") {
+    let frame = type ? Phaser.Math.Between(0, 5) : 0;
+
+    let x = type ? width + 100 : width - 100;
+
+    const obstacleKey =
+      this.obstacleKeys[Phaser.Math.Between(0, this.obstacleKeys.length - 1)];
+    const obstacle = new Obstacle(this, x, height - 50, obstacleKey, frame);
+    this.obstacleGroup.add(obstacle);
+    obstacle.display();
   }
 
   update() {
-    this.obstacleGroup.getChildren().forEach((item) => {
-      item.x -= 5;
-    });
+    if (!this.isGameOver) {
+      this.street.tilePositionX += this.speed;
 
-    this.obstacleGroup.getChildren().forEach((item) => {
-      if (item.x <= 0) {
-        item.destroy();
-        const obstacle = this.physics.add.sprite(
-          600,
-          120,
-          "obstacle-large",
-          Phaser.Math.Between(0, 5)
-        );
-        this.obstacleGroup.add(obstacle);
-        obstacle.body.allowGravity = false;
-        obstacle.body.immovable = true;
+      if (this.speed < this.targetSpeed) {
+        this.speed += 0.05;
       }
-    });
 
-    this.street.tilePositionX += 5;
+      this.obstacleGroup.getChildren().forEach((item) => {
+        item.x -= this.speed;
+        if (item.x < 0) {
+          item.destroy();
 
-    if (this.cursor.space.isDown) {
-      this.dino.setVelocityY(-250);
+          this.createObstacle("random");
+        }
+      });
+
+      if (this.cursor.space.isDown && this.dino.body.touching.down) {
+        this.dino.setVelocityY(-380);
+      }
     }
   }
 }

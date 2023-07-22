@@ -1,20 +1,25 @@
 import Phaser from "phaser";
 import Preload from "./scene/Preload";
 import Game from "./scene/Game";
+import Bootstrap from "./scene/Bootstrap";
+import configDefault from "./config";
+import GameOver from "./scene/GameOver";
+
+const { width, height, backgroundColor, gravityY } = configDefault;
 
 const config = {
   type: Phaser.AUTO,
   parent: "app",
-  width: 600,
-  height: 150,
-  backgroundColor: "#F7F7F7",
+  width,
+  height,
+  backgroundColor,
   physics: {
     default: "arcade",
     arcade: {
-      gravity: { y: 1000 },
+      gravity: { y: gravityY },
     },
   },
-  scene: [Preload, Game],
+  scene: [Preload, Game, Bootstrap, GameOver],
 };
 
 export default new Phaser.Game(config);
